@@ -4,9 +4,6 @@
 #![crate_type = "lib"]
 #![crate_name = "lora_driver"]
 
-
-
-// BEGIN includes for radio controller functionality
 // STD includes
 use std::io::Write;
 use std::io::Read;
@@ -210,16 +207,9 @@ impl Driver {
 			Ok(()) => println!("AUX set correctly"),
 			Err(e) => println!("{}, correct gpio pin?",e)
 		}
-		/*
-		match aux_pin.set_edge(Edge::RisingEdge) {
-			Ok(()) => println!("AUX rising edge set correctly"),
-			Err(e) => println!("{}, correct gpio pin?",e)
-		}
-		*/
 
 		let mut port = serial::open(tty_str).unwrap();
-		//port.configure(tty_settings).unwrap();
-		//port.set_timeout(Duration::from_secs(10)).unwrap();
+
 		port.set_timeout(Duration::from_millis(100)).unwrap();
 
 		Driver{m0: Pin::new(m0_pin_num), 
@@ -234,11 +224,6 @@ impl Driver {
 	// We might need to define our own error for this. Right ne we just panic if we never see the interrupt we're expecting
 	// TODO: we need to modify this function to PROPERLY timeout and throw errors
 	fn wait_for_interrupt(&mut self, value: bool, timeout: u32) {
-		//let input = Pin::new(pin);
-		//input.set_direction(Direction::In)?;
-		//pin.set_edge(Edge::RisingEdge)?;
-
-		//let mut stdout = stdout();
 
 		let mut poller = self.aux.get_poller().unwrap();
 
@@ -275,11 +260,8 @@ impl Driver {
 
 		let poll_wait_time_ms = 10;
 
-		// Only set the new mode if aux is high
-		//if self.aux.get_value().unwrap() == 0 {
-			// Wait for the rising edge of aux
-			self.wait_for_interrupt(true,poll_wait_time_ms);
-		//}
+		self.wait_for_interrupt(true,poll_wait_time_ms);
+
 		
 		match mode {
 			RadioMode::General => { self.m0.set_value(0).unwrap(); self.m1.set_value(0).unwrap() },
@@ -331,7 +313,6 @@ impl Driver {
 		// We need to set the linux tty mode to 9200 baud, first saving the old
 		//let mut tty_settings = self.tty_device.read_settings().unwrap();
 		let orig_baud = self.get_tty_baud();
-		//tty_settings.set_baud_rate(serial::Baud9600).unwrap();
 		// Set the new baud rate.
 		self.set_tty_baud(serial::Baud9600);
 
@@ -391,10 +372,6 @@ impl Driver {
 					else {
 						panic!(err);
 					}
-					/*
-					println!("{:?}",err); 
-					break;
-					*/
 				}
 			}
 		}
