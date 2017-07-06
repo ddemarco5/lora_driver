@@ -1,0 +1,14 @@
+[package]
+name = "lora_driver"
+version = "0.0.1"
+authors = ["Dominic <awesome3165@gmail.com>"]
+
+[dependencies]
+sysfs_gpio = "0.5.1"
+bit-vec = "0.4.4"
+serial = "0.3.4"
+
+
+# This is necessary because serial's .toml doesn't have our desired arch, among other small changes
+[replace]
+"serial:0.3.4" = { path = '/home/dominic/serial-rs' }
