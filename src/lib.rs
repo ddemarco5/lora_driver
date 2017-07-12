@@ -233,7 +233,7 @@ impl Driver {
 			//If the pin is already high by the time we get here there will be an error
 			while self.aux.get_value().unwrap() != 1 {
 				match poller.poll(timeout as isize).unwrap() {
-					Some(value) => println!("Aux high: {}",value),
+					Some(value) => { } //println!("Aux high: {}",value),
 					None => { } // Do nothing, continue waiting.
 				}
 			}
@@ -244,7 +244,7 @@ impl Driver {
 			//If the pin is already low by the time we get here there will be an error
 			while self.aux.get_value().unwrap() != 0 {
 				match poller.poll(timeout as isize).unwrap() {
-					Some(value) => println!("Aux low: {}",value),
+					Some(value) => { } //println!("Aux low: {}",value),
 					None => { } // Do nothing, continue waiting.
 				}
 			}
@@ -276,7 +276,7 @@ impl Driver {
 
 		// Then set the mode variable in the driver struct
 		self.mode = mode;
-		println!("Mode set to {:?}", self.mode);
+		//println!("Mode set to {:?}", self.mode);
 	}
 
 	// Get a reference to the driver's mode
@@ -321,7 +321,7 @@ impl Driver {
 		self.serial_write(config.raw().as_ref());
 		// verify what it returns before continuing
 		let bytes_read = self.serial_read();
-		println!("Config: read {} bytes in response", bytes_read.len());
+		//println!("Config: read {} bytes in response", bytes_read.len());
 		// Return to the mode we were in previously
 		self.set_mode(prev_mode);
 
@@ -331,7 +331,7 @@ impl Driver {
 		if bytes_read != config.raw() {
 			panic!("Config wasn't written successfully! {:?} vs {:?}",bytes_read,config.raw());
 		}
-		println!("Config written successfully {:?}",bytes_read);
+		//println!("Config written successfully {:?}",bytes_read);
 
 		//Return the device baud rate to the original
 		self.set_tty_baud(orig_baud);
@@ -340,7 +340,7 @@ impl Driver {
 	fn serial_write(&mut self, data: &[u8]) {
 
 		let bytes_wrote = self.tty_device.write(data).unwrap();
-		println!("Wrote {} bytes", bytes_wrote);
+		//println!("Wrote {} bytes", bytes_wrote);
 
 	}
 
@@ -407,7 +407,7 @@ impl Driver {
 		// Send the packet!
 		self.serial_write(packet);
 		self.wait_for_interrupt(true,10); //I'm not sure how long it will take the radio to send all the data. Let's use 1 second for now
-		println!("Sent {} bytes of data!",packet.len());
+		//println!("Sent {} bytes of data!",packet.len());
 	}
 
 	pub fn receive_packet(&mut self) -> Vec<u8> {
