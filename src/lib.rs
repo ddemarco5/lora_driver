@@ -221,9 +221,39 @@ impl Driver {
 			}
 	}
 
+	fn wait_for_aux(&mut self, value: u8, timeout: u32) -> Result<(), std::io::Error> {
+		// Before we eat up any cycles setting up our pollers, check to make sure aux isn't already desired value
+		if self.aux.get_value().unwrap() == value {
+			// We need an early return here because it isn't the final expression in this function
+			return Ok(())
+		}
+
+		let mut poller = self.aux.get_poller().unwrap();
+
+		if value == 1 {
+			// We're waiting for a rising edge
+			self.aux.set_edge(Edge::RisingEdge).expect("Edge failed to set to rising");
+			//If the pin is already high by the time we get here there will be an error
+			match poller.poll(timeout as isize).unwrap() {
+				// Return nothing, we got the result we were looking for.
+				Some(value) => { Ok(()) } 
+				None => { Err(Error::new(ErrorKind::TimedOut,"Interrupt timed out")) } // Do nothing, continue waiting.
+			}
+		}
+		else {
+			// We're detecting a 0, so we're waiting for a falling edge
+			self.aux.set_edge(Edge::FallingEdge).expect("Edge failed to set to falling");
+			//If the pin is already low by the time we get here there will be an error
+			match poller.poll(timeout as isize).unwrap() {
+				Some(value) => { Ok(()) } //println!("Aux low: {}",value),
+				None => { Err(Error::new(ErrorKind::TimedOut,"Interrupt timed out")) } // Do nothing, continue waiting.
+			}
+		}
+	}
+	/*
 	// We might need to define our own error for this. Right ne we just panic if we never see the interrupt we're expecting
 	// TODO: we need to modify this function to PROPERLY timeout and throw errors
-	fn wait_for_interrupt(&mut self, value: bool, timeout: u32) {
+	fn wait_for_aux_old(&mut self, value: bool, timeout: u32) {
 
 		let mut poller = self.aux.get_poller().unwrap();
 
@@ -250,6 +280,7 @@ impl Driver {
 			}
 		}
 	}
+	*/
 
 	pub fn get_control_gpio_pins(&self) -> (u64, u64, u64) {
 		(self.m0.get_pin_num(), self.m1.get_pin_num(), self.aux.get_pin_num())
@@ -258,9 +289,7 @@ impl Driver {
 	// This function will simply panic if there is any error, because it isn't something we can continue operating with.
 	pub fn set_mode(&mut self, mode: RadioMode) {
 
-		let poll_wait_time_ms = 10;
-
-		self.wait_for_interrupt(true,poll_wait_time_ms);
+		self.wait_for_aux(1,1000).unwrap();
 
 		
 		match mode {
@@ -270,7 +299,7 @@ impl Driver {
 			RadioMode::Sleep => { self.m0.set_value(1).unwrap(); self.m1.set_value(1).unwrap() },
 		}
 
-		self.wait_for_interrupt(true,poll_wait_time_ms);
+		self.wait_for_aux(1,1000).unwrap();
 		// Wait at least 2 ms as per the datasheet
 		sleep(Duration::from_millis(2));
 
@@ -331,7 +360,7 @@ impl Driver {
 		if bytes_read != config.raw() {
 			panic!("Config wasn't written successfully! {:?} vs {:?}",bytes_read,config.raw());
 		}
-		//println!("Config written successfully {:?}",bytes_read);
+		println!("Config written successfully {:?}",bytes_read);
 
 		//Return the device baud rate to the original
 		self.set_tty_baud(orig_baud);
@@ -395,34 +424,36 @@ impl Driver {
 		self.tty_device.write_settings(&settings).unwrap();
 	}
 
-	pub fn send_packet(&mut self, packet: &Vec<u8>) {
+	pub fn send_packet(&mut self, packet: &Vec<u8>, timeout: u32) -> Result<(), std::io::Error> {
 		
 		// Make sure our packet isn't larger than is allowed by the device.
-		if packet.len() > 256 {
-			panic!("Attempted to send a packet that was too long");
+		if packet.len() > 58 {
+			return Err(Error::new(ErrorKind::InvalidInput,"Attempted to send a packet that was too long"));
 		}
 
 		// make sure the pin is high before we start sending
-		self.wait_for_interrupt(true,500); //wait for 500 ms before giving error.
+		self.wait_for_aux(1,timeout)?; //Aux never came high! Cannot send
 		// Send the packet!
 		self.serial_write(packet);
-		self.wait_for_interrupt(true,10); //I'm not sure how long it will take the radio to send all the data. Let's use 1 second for now
+		self.wait_for_aux(1,5000).expect("Aux never came back up, stuck low after sending"); //I'm not sure how long it will take the radio to send all the data. Let's use 1 second for now
 		//println!("Sent {} bytes of data!",packet.len());
+		Ok(())
 	}
 
-	pub fn receive_packet(&mut self) -> Vec<u8> {
+	pub fn receive_packet(&mut self, timeout_ms: u32) -> Result<Vec<u8>, std::io::Error> {
 		// Make sure aux is high, meaning we can do something
-		self.wait_for_interrupt(true,1000);
+		self.wait_for_aux(1,5000).expect("Aux stuck low... radio is down or very busy");
 		// Wait for aux to be low, that signifies that the radio is getting data
-		self.wait_for_interrupt(false,500);
+		// We also only want to propegate this timeout error
+		self.wait_for_aux(0,timeout_ms)?;
 		// Wait at least 5ms according to the doc
-		sleep(Duration::from_millis(5));
+		//sleep(Duration::from_millis(5));
 		// Wait for the radio to finish sending data to the serial port for us to read.
-		self.wait_for_interrupt(true,100);
+		self.wait_for_aux(1,5000).expect("Radio took too long to write to serial, timed out");
 
 		// Read the data
 		// TODO: Make sure all the data is read correctly.
-		self.serial_read()
+		Ok(self.serial_read())
 
 	}
 }
