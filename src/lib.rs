@@ -237,7 +237,16 @@ impl Driver {
 			match poller.poll(timeout as isize).unwrap() {
 				// Return nothing, we got the result we were looking for.
 				Some(value) => { Ok(()) } 
-				None => { Err(Error::new(ErrorKind::TimedOut,"Interrupt timed out")) } // Do nothing, continue waiting.
+				None => { 
+					// Do a final check to make sure our value is incorrect and we didn't just miss the edge
+					let value = self.aux.get_value().unwrap();
+					if value != 1 {
+						Err(Error::new(ErrorKind::TimedOut,"Interrupt timed out"))
+					}
+					else {
+						Ok(())
+					}
+				}
 			}
 		}
 		else {
@@ -246,41 +255,19 @@ impl Driver {
 			//If the pin is already low by the time we get here there will be an error
 			match poller.poll(timeout as isize).unwrap() {
 				Some(value) => { Ok(()) } //println!("Aux low: {}",value),
-				None => { Err(Error::new(ErrorKind::TimedOut,"Interrupt timed out")) } // Do nothing, continue waiting.
-			}
-		}
-	}
-	/*
-	// We might need to define our own error for this. Right ne we just panic if we never see the interrupt we're expecting
-	// TODO: we need to modify this function to PROPERLY timeout and throw errors
-	fn wait_for_aux_old(&mut self, value: bool, timeout: u32) {
-
-		let mut poller = self.aux.get_poller().unwrap();
-
-		if value {
-			// We're waiting for a rising edge
-			self.aux.set_edge(Edge::RisingEdge).expect("Edge failed to set to rising");
-			//If the pin is already high by the time we get here there will be an error
-			while self.aux.get_value().unwrap() != 1 {
-				match poller.poll(timeout as isize).unwrap() {
-					Some(value) => { } //println!("Aux high: {}",value),
-					None => { } // Do nothing, continue waiting.
-				}
-			}
-		}
-		else {
-			// We're detecting a 0, so we're waiting for a falling edge
-			self.aux.set_edge(Edge::FallingEdge).expect("Edge failed to set to falling");
-			//If the pin is already low by the time we get here there will be an error
-			while self.aux.get_value().unwrap() != 0 {
-				match poller.poll(timeout as isize).unwrap() {
-					Some(value) => { } //println!("Aux low: {}",value),
-					None => { } // Do nothing, continue waiting.
+				None => { 
+					// Do a final check to make sure our value is incorrect and we didn't just miss the edge
+					let value = self.aux.get_value().unwrap();
+					if value != 0 {
+						Err(Error::new(ErrorKind::TimedOut,"Interrupt timed out"))
+					}
+					else {
+						Ok(())
+					}
 				}
 			}
 		}
 	}
-	*/
 
 	pub fn get_control_gpio_pins(&self) -> (u64, u64, u64) {
 		(self.m0.get_pin_num(), self.m1.get_pin_num(), self.aux.get_pin_num())
