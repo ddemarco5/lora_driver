@@ -441,6 +441,7 @@ impl Driver {
 		// Read the data
 		// TODO: Make sure all the data is read correctly.
 		Ok(self.serial_read())
+		//Ok(serial_data)
 
 	}
 }
